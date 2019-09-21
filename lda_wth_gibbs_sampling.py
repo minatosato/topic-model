@@ -60,7 +60,6 @@ docs: List[List[int]] = list(map(lambda sentence: [w2i[word] for word in sentenc
 N_W: int = len(w2i)    # 語彙数
 N_D: int = len(docs)   # ドキュメント数
 N_K: int = 3           # トピック数
-W: int = sum(map(len, docs)) # total number of words
 alpha: float = 0.01
 beta: float = 0.01
 
@@ -96,7 +95,7 @@ for iteration in tqdm(range(1000)):
 
             prob = np.zeros(shape=(N_K, ))
             for k in range(N_K):
-                prob[k] = (n_d_k[i, k] + alpha) * (n_k_w[k, word] + beta) / (n_k[k] + beta*W)
+                prob[k] = (n_d_k[i, k] + alpha) * (n_k_w[k, word] + beta) / (n_k[k] + beta*N_W)
             
             prob /= prob.sum()
             topic = np.random.multinomial(1, prob).argmax()
