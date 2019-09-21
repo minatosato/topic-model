@@ -8,10 +8,14 @@ from functools import reduce
 from tqdm import tqdm
 
 import numpy as np
+import scipy as sp
+from scipy import special
 
 import stanfordnlp #stanfordnlp.download('ja')
 tokenize_ja = stanfordnlp.Pipeline(lang='ja', processors="tokenize")
 
+import MeCab
+mecab = MeCab.Tagger('-d /usr/local/lib/mecab/dic/mecab-ipadic-neologd')
 
 w2i: Dict[str, int] = {}
 i2w: Dict[int, str] = {}
@@ -22,13 +26,24 @@ dirs: List[Path] = [_dir for _dir in Path("text").glob("*") if _dir.is_dir() and
 text_file: Path
 raw: List[str] = []
 for _dir in dirs:
-    for text_file in tqdm(list(_dir.glob("*.txt"))[:10]):
+    for text_file in tqdm(list(_dir.glob("*.txt"))[:20]):
         doc_tokens: List[str] = []
         with text_file.open("r") as f:
-            results = tokenize_ja(f.read())
-            for sentence in results.sentences:
-                for token in sentence.tokens:
-                    doc_tokens.append(token.words[0].text)
+            node = mecab.parseToNode(f.read())
+            while node:
+                token: str
+                if node.feature.split(",")[6] == '*':
+                    token = node.surface
+                else:
+                    token = node.feature.split(",")[6]
+                part = node.feature.split(",")[0]
+                if part in set(["名詞", "形容詞", "動詞"]):
+                    doc_tokens.append(token)
+                node = node.next
+            # results = tokenize_ja(f.read())
+            # for sentence in results.sentences:
+            #     for token in sentence.tokens:
+            #         doc_tokens.append(token.words[0].text)
         raw.append(" ".join(doc_tokens))
 
 unique_words: Set[str] = set(reduce(lambda x, y: x + y, map(str.split, raw)))
@@ -46,8 +61,8 @@ N_W: int = len(w2i)    # 語彙数
 N_D: int = len(docs)   # ドキュメント数
 N_K: int = 3           # トピック数
 W: int = sum(map(len, docs)) # total number of words
-alpha = 1
-beta = 0.001
+alpha: float = 0.01
+beta: float = 0.01
 
 Z: List[np.ndarray] = list(map(lambda x: np.zeros(len(x)), docs))
 
@@ -57,11 +72,9 @@ n_k: np.ndarray = np.zeros(shape=(N_K, ))      # トピックkのカウント
 
 
 # initialize
-for i in range(len(docs)):
-    doc = docs[i]
-
-    for j in range(len(doc)):
-        word = doc[j]
+for i in range(len(docs)):    
+    for j in range(len(docs[i])):
+        word = docs[i][j]
         topic: int = np.random.choice(range(N_K), 1)[0]
 
         Z[i][j] = topic
@@ -73,9 +86,7 @@ for i in range(len(docs)):
 
 for iteration in tqdm(range(1000)):
     for i in range(len(docs)):
-        doc = docs[i]
-
-        for j in range(len(doc)):
+        for j in range(len(docs[i])):
             word = docs[i][j]
             topic = int(Z[i][j])
 
@@ -94,5 +105,15 @@ for iteration in tqdm(range(1000)):
             n_d_k[i, topic] += 1
             n_k_w[topic, word] += 1
             n_k[topic] += 1
+
+    bunshi = sum([special.digamma(n_d_k[i, k] + alpha) for k in range(N_K) for i in range(N_D)]) - N_D * N_K * special.digamma(alpha)
+    bunbo = N_K * sum([special.digamma(len(d) + alpha*N_K) for d in docs]) - N_D * N_K * special.digamma(alpha*N_K)
+    alpha = alpha * bunshi / bunbo
+
+    bunshi = sum([special.digamma(n_k_w[k, i] + beta) for i in range(N_W) for k in range(N_K)]) - N_K * N_W * special.digamma(beta)
+    bunbo = N_W * sum([special.digamma(n_k[k] + beta*N_W) for k in range(N_K)]) - N_K * N_W * special.digamma(beta*N_W)
+    beta = beta * bunshi / bunbo
+
+
 
 
