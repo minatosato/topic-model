@@ -11,9 +11,6 @@ import numpy as np
 import scipy as sp
 from scipy import special
 
-import stanfordnlp #stanfordnlp.download('ja')
-tokenize_ja = stanfordnlp.Pipeline(lang='ja', processors="tokenize")
-
 import MeCab
 mecab = MeCab.Tagger('-d /usr/local/lib/mecab/dic/mecab-ipadic-neologd')
 
@@ -60,8 +57,8 @@ docs: List[List[int]] = list(map(lambda sentence: [w2i[word] for word in sentenc
 N_W: int = len(w2i)    # 語彙数
 N_D: int = len(docs)   # ドキュメント数
 N_K: int = 3           # トピック数
-alpha: float = 0.01
-beta: float = 0.01
+alpha: float = 1
+beta: float = 1
 
 Z: List[np.ndarray] = list(map(lambda x: np.zeros(len(x)), docs))
 
@@ -69,6 +66,20 @@ n_d_k: np.ndarray = np.zeros(shape=(N_D, N_K)) # ドキュメントdのトピッ
 n_k_w: np.ndarray = np.zeros(shape=(N_K, N_W)) # トピックkの単語wのカウント
 n_k: np.ndarray = np.zeros(shape=(N_K, ))      # トピックkのカウント
 
+
+def perplexity(docs: List[List[int]]):
+    word_distribution_for_topics: np.ndarray = (n_k_w + beta) / (n_k[:, None] + beta * N_W)
+    sum_log_prob: float = 0.0
+    num_of_total_words: int = 0
+    for i in range(len(docs)):
+        topic_ditribution_for_doc: np.ndarray = (n_d_k[i] + alpha) / (n_d_k[i].sum() + alpha * N_K) # このドキュメントのトピック分布
+        for j in range(len(docs[i])):
+            topic_ditribution_for_word: np.ndarray = word_distribution_for_topics[:, docs[i][j]]
+            log_prob = np.log(topic_ditribution_for_word * topic_ditribution_for_doc)
+            prob: float = np.dot(topic_ditribution_for_word, topic_ditribution_for_doc)
+            sum_log_prob += np.log(prob)
+        num_of_total_words += len(docs[i])
+    return np.exp(- (1/num_of_total_words) * sum_log_prob)
 
 # initialize
 for i in range(len(docs)):    
@@ -113,6 +124,14 @@ for iteration in tqdm(range(1000)):
     bunbo = N_W * sum([special.digamma(n_k[k] + beta*N_W) for k in range(N_K)]) - N_K * N_W * special.digamma(beta*N_W)
     beta = beta * bunshi / bunbo
 
+    if iteration % 10 == 0:
+        print(perplexity(docs))
+
+
+
+
+
+    
 
 
 
