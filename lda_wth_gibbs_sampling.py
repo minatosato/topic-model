@@ -16,6 +16,7 @@ parser = argparse.ArgumentParser(description='LDA')
 parser.add_argument('--log', type=str, default="./bpr-log")
 parser.add_argument('--stop_words_file', type=str, default="stop_words.txt")
 parser.add_argument('--limit', type=int, default=20)
+parser.add_argument('--iter', type=int, default=100)
 
 args = parser.parse_args()
 
@@ -27,11 +28,12 @@ class LDA(object):
         self.N_W: int = len(i2w)    # 語彙数
         self.N_D: int = len(docs)   # ドキュメント数
         self.N_K: int = num_topics  # トピック数
-
         self.iterations = iterations
 
         self.docs: List[List[int]] = docs
         self.i2w: Dict[int, str] = i2w
+
+        self.history: Dict[str, np.ndarray] = {}
 
         self.initialize_parameters()
         self.gibbs_sampling()
@@ -79,14 +81,12 @@ class LDA(object):
         self.n_k[topic] += 1
 
     def resampling_topic(self, doc: int, word: int) -> int:
-        prob: np.ndarray = np.zeros(shape=(self.N_K, ))
-        for k in range(self.N_K):
-            prob[k] = (self.n_d_k[doc, k] + self.alpha) * (self.n_k_w[k, word] + self.beta) / (self.n_k[k] + self.beta*self.N_W)
+        prob: np.ndarray = (self.n_d_k[doc, :] + self.alpha) * (self.n_k_w[:, word] + self.beta) / (self.n_k + self.beta*self.N_W)
         prob /= prob.sum()
         topic: int = np.random.multinomial(1, prob).argmax()
         return topic
 
-    def gibbs_sampling(self):
+    def gibbs_sampling(self) -> None:
         perplexity_history: List[float] = []
         for iteration in range(self.iterations):
             for i in range(len(self.docs)):
@@ -111,5 +111,21 @@ class LDA(object):
             perplexity_history.append(self.perplexity())
             print(perplexity_history[-1])
 
+        self.history["perplexity"] = np.array(perplexity_history)
 
-lda = LDA(corpus.docs, corpus.i2w, num_topics=3, iterations=30)
+    def print_topic(self, i: int, num_words: int = 20):
+        tmp = self.n_k_w[i].copy()
+        tmp /= tmp.sum()
+
+        indices: np.ndarray = self.n_k_w[i].argsort()[::-1][:num_words]
+        print(f"topic #{i}: ", end="")
+        for index in indices:
+            print(f"{np.round(tmp[index], 3)}*{self.i2w[index]}", end="")
+            if index != indices[-1]:
+                print(" + ", end="")
+        print("")
+
+lda = LDA(corpus.docs, corpus.i2w, num_topics=3, iterations=args.iter)
+
+
+# http://svn.sourceforge.jp/svnroot/slothlib/CSharp/Version1/SlothLib/NLP/Filter/StopWord/word/Japanese.txt
