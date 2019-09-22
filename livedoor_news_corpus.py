@@ -24,12 +24,19 @@ class LivedoorNewsCorpus(object):
     raw: List[str]
     docs: List[List[int]]
 
-    def __init__(self, stop_words_path: Optional[str] = None, limit: int = 20, target: Set[str] = set(["dokujo-tsushin", "it-life-hack", "sports-watch"])):
+    def __init__(self, 
+                 stop_words_path: Optional[str] = None,
+                 limit: int = 20,
+                 target: Set[str] = set(["dokujo-tsushin", "it-life-hack", "sports-watch"]),
+                 mecab_option: str = "-d /usr/local/lib/mecab/dic/mecab-ipadic-neologd",
+                 ):
         self.root = Path("./text")
         self.stop_words_path = stop_words_path
         self.stop_words = set()
         self.w2i = {}
         self.i2w = {}
+
+        extract_parts: Set[str] = set(["名詞", "形容詞", "動詞"])
 
         if not self.root.exists():
             fname: str = "ldcc-20140209.tar.gz"
@@ -47,13 +54,13 @@ class LivedoorNewsCorpus(object):
         ignore_file_name: str = "LICENSE.txt"
         dirs: List[Path] = [_dir for _dir in self.root.glob("*") if _dir.is_dir() and _dir.name in target]
 
-        mecab = MeCab.Tagger('-d /usr/local/lib/mecab/dic/mecab-ipadic-neologd')
+        mecab = MeCab.Tagger(mecab_option)
 
         text_file: Path
         self.raw = []
         for _dir in dirs:
             file_list: List[Path] = [i for i in _dir.glob("*.txt") if i.name != ignore_file_name]
-            for text_file in tqdm(file_list[:limit]):
+            for text_file in file_list[:limit]:
                 doc_tokens: List[str] = []
                 with text_file.open("r") as f:
                     node = mecab.parseToNode(f.read())
@@ -64,7 +71,7 @@ class LivedoorNewsCorpus(object):
                         else:
                             token = node.feature.split(",")[6]
                         part = node.feature.split(",")[0]
-                        if part in set(["名詞", "形容詞", "動詞"]) and token not in self.stop_words:
+                        if part in extract_parts and token not in self.stop_words:
                             doc_tokens.append(token)
                         node = node.next
                 self.raw.append(" ".join(doc_tokens))
