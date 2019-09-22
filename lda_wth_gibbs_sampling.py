@@ -1,8 +1,6 @@
 
 from typing import Dict
 from typing import List
-from typing import Set
-from pathlib import Path
 
 from functools import reduce
 from tqdm import tqdm
@@ -11,54 +9,27 @@ import numpy as np
 import scipy as sp
 from scipy import special
 
-import MeCab
-mecab = MeCab.Tagger('-d /usr/local/lib/mecab/dic/mecab-ipadic-neologd')
+from livedoor_news_corpus import LivedoorNewsCorpus
 
-w2i: Dict[str, int] = {}
-i2w: Dict[int, str] = {}
+import argparse
+parser = argparse.ArgumentParser(description='LDA')
+parser.add_argument('--log', type=str, default="./bpr-log")
+parser.add_argument('--stop_words_file', type=str, default="stop_words.txt")
+parser.add_argument('--limit', type=int, default=20)
 
-target = set(["dokujo-tsushin", "it-life-hack", "sports-watch"])
-dirs: List[Path] = [_dir for _dir in Path("text").glob("*") if _dir.is_dir() and _dir.name in target]
+args = parser.parse_args()
 
-text_file: Path
-raw: List[str] = []
-for _dir in dirs:
-    for text_file in tqdm(list(_dir.glob("*.txt"))[:20]):
-        doc_tokens: List[str] = []
-        with text_file.open("r") as f:
-            node = mecab.parseToNode(f.read())
-            while node:
-                token: str
-                if node.feature.split(",")[6] == '*':
-                    token = node.surface
-                else:
-                    token = node.feature.split(",")[6]
-                part = node.feature.split(",")[0]
-                if part in set(["名詞", "形容詞", "動詞"]):
-                    doc_tokens.append(token)
-                node = node.next
-            # results = tokenize_ja(f.read())
-            # for sentence in results.sentences:
-            #     for token in sentence.tokens:
-            #         doc_tokens.append(token.words[0].text)
-        raw.append(" ".join(doc_tokens))
+corpus: LivedoorNewsCorpus = LivedoorNewsCorpus(
+    stop_words_path=args.stop_words_file, limit=args.limit)
 
-unique_words: Set[str] = set(reduce(lambda x, y: x + y, map(str.split, raw)))
-
-for _word in unique_words:
-    index: int = len(w2i)
-    w2i[_word] = index
-    i2w[index] = _word
-
-
-
-docs: List[List[int]] = list(map(lambda sentence: [w2i[word] for word in sentence], map(str.split, raw)))
+w2i = corpus.w2i
+docs = corpus.docs
 
 N_W: int = len(w2i)    # 語彙数
 N_D: int = len(docs)   # ドキュメント数
 N_K: int = 3           # トピック数
-alpha: float = 1
-beta: float = 1
+alpha: float = 0.1
+beta: float = 0.1
 
 Z: List[np.ndarray] = list(map(lambda x: np.zeros(len(x)), docs))
 
@@ -126,12 +97,3 @@ for iteration in tqdm(range(1000)):
 
     if iteration % 10 == 0:
         print(perplexity(docs))
-
-
-
-
-
-    
-
-
-
