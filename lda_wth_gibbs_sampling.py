@@ -114,6 +114,8 @@ class LDA(object):
         return topic
 
     def gibbs_sampling(self, iterations: int = 100) -> None:
+        self.n_d: np.ndarray = np.array(list(map(len, self.docs))) 
+
         perplexity_history: List[float] = []
 
         with tqdm(total=iterations, leave=True, ncols=100) as progress:
@@ -129,12 +131,12 @@ class LDA(object):
                         self.Z[i][j] = topic
                         self.increment_counters(topic, i, word)
 
-                bunshi = sum([digamma(self.n_d_k[i, k] + self.alpha) for k in range(self.N_K) for i in range(self.N_D)]) - self.N_D * self.N_K * digamma(self.alpha)
-                bunbo = self.N_K * sum([digamma(len(d) + self.alpha*self.N_K) for d in self.docs]) - self.N_D * self.N_K * digamma(self.alpha*self.N_K)
+                bunshi = digamma(self.n_d_k + self.alpha).sum() - self.N_D * self.N_K * digamma(self.alpha)
+                bunbo = self.N_K * digamma(self.n_d + self.alpha*self.N_K).sum() - self.N_D * self.N_K * digamma(self.alpha*self.N_K)
                 self.alpha = self.alpha * bunshi / bunbo
 
-                bunshi = sum([digamma(self.n_k_w[k, i] + self.beta) for i in range(self.N_W) for k in range(self.N_K)]) - self.N_K * self.N_W * digamma(self.beta)
-                bunbo = self.N_W * sum([digamma(self.n_k[k] + self.beta*self.N_W) for k in range(self.N_K)]) - self.N_K * self.N_W * digamma(self.beta*self.N_W)
+                bunshi = digamma(self.n_k_w + self.beta).sum() - self.N_K * self.N_W * digamma(self.beta)
+                bunbo = self.N_W * digamma(self.n_k + self.beta*self.N_W).sum() - self.N_K * self.N_W * digamma(self.beta*self.N_W)
                 self.beta = self.beta * bunshi / bunbo
 
                 perplexity_history.append(self.perplexity())
