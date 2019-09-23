@@ -1,3 +1,10 @@
+# 
+# Copyright (c) 2019 Minato Sato
+# All rights reserved.
+#
+# This source code is licensed under the license found in the
+# LICENSE file in the root directory of this source tree.
+#
 
 from typing import Dict
 from typing import List
@@ -24,24 +31,44 @@ corpus: LivedoorNewsCorpus = LivedoorNewsCorpus(
     stop_words_path=args.stop_words_file, limit=args.limit)
 
 class LDA(object):
-    def __init__(self, docs: List[List[int]], i2w: Dict[int, str], num_topics: int = 3, iterations: int = 100):
+    def __init__(self,
+                 docs: List[List[int]], 
+                 i2w: Dict[int, str], 
+                 num_topics: int = 3, 
+                 iterations: int = 100, 
+                 alpha: float = 0.1, 
+                 beta: float = 0.1
+                ):
         self.N_W: int = len(i2w)    # 語彙数
         self.N_D: int = len(docs)   # ドキュメント数
         self.N_K: int = num_topics  # トピック数
-        self.iterations = iterations
 
         self.docs: List[List[int]] = docs
         self.i2w: Dict[int, str] = i2w
 
+        self.alpha: float = alpha
+        self.beta: float = beta
+
+        print("####### LDA #######")
+        print(f"VOCABLARY SIZE: {self.N_W}")
+        print(f"NUMBER OF DOCUMENTS: {self.N_D}")
+        print(f"NUMBER OF TOPICS: {self.N_K}")
+        print(f"NUMBER OF ITERATIONS: {iterations}")
+        print(f"ALPHA: {self.alpha}")
+        print(f"BETA: {self.beta}")
+
         self.history: Dict[str, np.ndarray] = {}
 
-        self.initialize_parameters()
-        self.gibbs_sampling()
+        self.initialize_counters()
+        self.gibbs_sampling(iterations)
 
-    def initialize_parameters(self):
-        self.alpha: float = 0.1
-        self.beta: float = 0.1
+        print(f"FINAL ALPHA: {self.alpha}")
+        print(f"FINAL BETA: {self.beta}")
+        for i in range(self.N_K):
+            self.print_topic(i)
+        print("###################")
 
+    def initialize_counters(self):
         self.Z: List[np.ndarray] = list(map(lambda x: np.zeros(len(x)), self.docs))
         self.n_d_k: np.ndarray = np.zeros(shape=(self.N_D, self.N_K)) # ドキュメントdのトピックkのカウント
         self.n_k_w: np.ndarray = np.zeros(shape=(self.N_K, self.N_W)) # トピックkの単語wのカウント
@@ -86,30 +113,39 @@ class LDA(object):
         topic: int = np.random.multinomial(1, prob).argmax()
         return topic
 
-    def gibbs_sampling(self) -> None:
+    def gibbs_sampling(self, iterations: int = 100) -> None:
         perplexity_history: List[float] = []
-        for iteration in range(self.iterations):
-            for i in range(len(self.docs)):
-                for j in range(len(self.docs[i])):
-                    word = self.docs[i][j]
-                    topic = int(self.Z[i][j])
 
-                    self.decrement_counters(topic, i, word)
-                    topic = self.resampling_topic(i, word)
-                    
-                    self.Z[i][j] = topic
-                    self.increment_counters(topic, i, word)
+        with tqdm(total=iterations, leave=True, ncols=100) as progress:
+            for iteration in range(iterations):
+                for i in range(len(self.docs)):
+                    for j in range(len(self.docs[i])):
+                        word = self.docs[i][j]
+                        topic = int(self.Z[i][j])
 
-            bunshi = sum([digamma(self.n_d_k[i, k] + self.alpha) for k in range(self.N_K) for i in range(self.N_D)]) - self.N_D * self.N_K * digamma(self.alpha)
-            bunbo = self.N_K * sum([digamma(len(d) + self.alpha*self.N_K) for d in self.docs]) - self.N_D * self.N_K * digamma(self.alpha*self.N_K)
-            self.alpha = self.alpha * bunshi / bunbo
+                        self.decrement_counters(topic, i, word)
+                        topic = self.resampling_topic(i, word)
+                        
+                        self.Z[i][j] = topic
+                        self.increment_counters(topic, i, word)
 
-            bunshi = sum([digamma(self.n_k_w[k, i] + self.beta) for i in range(self.N_W) for k in range(self.N_K)]) - self.N_K * self.N_W * digamma(self.beta)
-            bunbo = self.N_W * sum([digamma(self.n_k[k] + self.beta*self.N_W) for k in range(self.N_K)]) - self.N_K * self.N_W * digamma(self.beta*self.N_W)
-            self.beta = self.beta * bunshi / bunbo
+                bunshi = sum([digamma(self.n_d_k[i, k] + self.alpha) for k in range(self.N_K) for i in range(self.N_D)]) - self.N_D * self.N_K * digamma(self.alpha)
+                bunbo = self.N_K * sum([digamma(len(d) + self.alpha*self.N_K) for d in self.docs]) - self.N_D * self.N_K * digamma(self.alpha*self.N_K)
+                self.alpha = self.alpha * bunshi / bunbo
 
-            perplexity_history.append(self.perplexity())
-            print(perplexity_history[-1])
+                bunshi = sum([digamma(self.n_k_w[k, i] + self.beta) for i in range(self.N_W) for k in range(self.N_K)]) - self.N_K * self.N_W * digamma(self.beta)
+                bunbo = self.N_W * sum([digamma(self.n_k[k] + self.beta*self.N_W) for k in range(self.N_K)]) - self.N_K * self.N_W * digamma(self.beta*self.N_W)
+                self.beta = self.beta * bunshi / bunbo
+
+                perplexity_history.append(self.perplexity())
+                
+                description_list: List[str] = []
+                description_list.append(f"ITER={iteration+1:{len(str(iterations))}}")
+                description_list.append(f"CURRENT PERPLEXITY: {np.round(perplexity_history[-1], 3)}")
+                progress.set_description(', '.join(description_list))
+                progress.update(1)
+        
+
 
         self.history["perplexity"] = np.array(perplexity_history)
 
