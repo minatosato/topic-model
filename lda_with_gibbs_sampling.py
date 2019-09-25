@@ -20,7 +20,6 @@ from livedoor_news_corpus import LivedoorNewsCorpus
 
 import argparse
 parser = argparse.ArgumentParser(description='LDA')
-parser.add_argument('--log', type=str, default="./bpr-log")
 parser.add_argument('--stop_words_file', type=str, default="stop_words.txt")
 parser.add_argument('--limit', type=int, default=20)
 parser.add_argument('--iter', type=int, default=100)
