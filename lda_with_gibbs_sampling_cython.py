@@ -31,4 +31,5 @@ corpus: LivedoorNewsCorpus = LivedoorNewsCorpus(
 
 from gibbs_sampling import gibbs_sampling
 
-gibbs_sampling(list(map(np.array, corpus.docs)), len(corpus.i2w), 3)
+ret = gibbs_sampling(list(map(np.array, corpus.docs)), len(corpus.i2w), 3, args.iter)
+print(np.round(ret/ret.sum(axis=1)[:, None]))
