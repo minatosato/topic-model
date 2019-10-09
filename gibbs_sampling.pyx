@@ -28,7 +28,7 @@ srand48(1234)
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def gibbs_sampling(int[:,:] docs, unsigned int vocab_size, unsigned int num_topics, unsigned int num_iterations):
+def gibbs_sampling(vector[vector[int]] docs, unsigned int vocab_size, unsigned int num_topics, unsigned int num_iterations):
     cdef unsigned int N_K = num_topics
     cdef unsigned int N_W = vocab_size
     cdef unsigned int N_D = len(docs)
@@ -37,7 +37,8 @@ def gibbs_sampling(int[:,:] docs, unsigned int vocab_size, unsigned int num_topi
     cdef double alpha = 0.1
     cdef double beta = 0.1
 
-    cdef int[:,:] Z = (np.ones(shape=(docs.shape[0], docs.shape[1])) * -1).astype(np.int32)
+    cdef vector[vector[int]] Z = []
+    cdef vector[int] z = []
     cdef unsigned int i, j, k, word, topic, iteration
 
     cdef int[:,:] n_d_k = np.zeros(shape=(N_D, N_K)).astype(np.int32)
@@ -50,7 +51,6 @@ def gibbs_sampling(int[:,:] docs, unsigned int vocab_size, unsigned int num_topi
     cdef double[:] topic_distribution = np.zeros(shape=(N_K, ))
     cdef double[:] doc
     cdef double total, roulette
-    cdef int doc_len
     cdef np.ndarray[np.int_t, ndim=1] topics = np.arange(0, N_K)
 
 
@@ -75,29 +75,29 @@ def gibbs_sampling(int[:,:] docs, unsigned int vocab_size, unsigned int num_topi
     print(f"BETA: {beta}")
 
     for i in range(N_D):
-        doc_len = 0
-        for j in range(docs[i].shape[0]):
-            if docs[i,j] == -1:
+        z = []
+        for j in range(len(docs[i])):
+            if docs[i][j] == -1:
                 break
             
-            word = docs[i,j]
+            word = docs[i][j]
             topic = np.random.choice(topics, 1)[0]
-            Z[i,j] = topic
+            z.push_back(topic)
 
             n_k_w[topic, word] += 1
             n_k[topic] += 1
             n_d_k[i, topic] += 1
-
-            doc_len += 1
-        n_d[i] = doc_len
-        num_of_total_words += doc_len
+        
+        Z.push_back(z)
+        n_d[i] = len(z)
+        num_of_total_words += n_d[i]
 
     with tqdm(total=iterations, leave=True, ncols=100) as progress:
         for iteration in range(iterations):
             for i in range(N_D):
                 for j in range(n_d[i]):
-                    word = docs[i,j]
-                    topic = Z[i,j]
+                    word = docs[i][j]
+                    topic = Z[i][j]
 
                     n_d_k[i, topic] -= 1
                     n_k_w[topic, word] -= 1
@@ -115,7 +115,7 @@ def gibbs_sampling(int[:,:] docs, unsigned int vocab_size, unsigned int num_topi
                             break
                                 
                     topic = k
-                    Z[i,j] = topic
+                    Z[i][j] = topic
 
                     n_d_k[i, topic] += 1
                     n_k_w[topic, word] += 1
@@ -145,7 +145,7 @@ def gibbs_sampling(int[:,:] docs, unsigned int vocab_size, unsigned int num_topi
                 for k in range(N_K):
                     topic_ditribution_for_doc[k] /= (tmp + alpha * N_K)
                 for j in range(n_d[i]):
-                    topic_ditribution_for_word = word_distribution_for_topics[:, docs[i,j]]
+                    topic_ditribution_for_word = word_distribution_for_topics[:, docs[i][j]]
                     prob = 0.0
                     for k in range(N_K):
                         prob += topic_ditribution_for_doc[k] * topic_ditribution_for_word[k]

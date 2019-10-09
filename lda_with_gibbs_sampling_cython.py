@@ -38,6 +38,6 @@ corpus: LivedoorNewsCorpus = LivedoorNewsCorpus(
 
 from gibbs_sampling import gibbs_sampling
 
-ret = gibbs_sampling(with_padding(corpus.docs), len(corpus.i2w), 3, args.iter)
+ret = gibbs_sampling(corpus.docs, len(corpus.i2w), 3, args.iter)
 print(np.round(ret/ret.sum(axis=1)[:, None]))
 
