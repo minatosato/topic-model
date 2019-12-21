@@ -159,7 +159,7 @@ def gibbs_sampling(vector[vector[int]] docs, unsigned int vocab_size, unsigned i
             progress.set_description(', '.join(description_list))
             progress.update(1)
 
-    print(alpha)
-    print(beta)
+    print(f"FINAL ALPHA: {alpha}")
+    print(f"FINAL BETA: {beta}")
     return np.array(n_d_k)
 

@@ -34,8 +34,7 @@ class LivedoorNewsCorpus(object):
     def __init__(self, 
                  stop_words_path: Optional[str] = None,
                  limit: int = 20,
-                 target: Set[str] = set(["dokujo-tsushin", "it-life-hack", "sports-watch"]),
-                 mecab_option: str = "-d /usr/local/lib/mecab/dic/mecab-ipadic-neologd",
+                 target: Set[str] = set(["dokujo-tsushin", "it-life-hack", "sports-watch"])
                  ):
         self.root = Path("./text")
         self.stop_words_path = stop_words_path
@@ -61,7 +60,7 @@ class LivedoorNewsCorpus(object):
         ignore_file_name: str = "LICENSE.txt"
         dirs: List[Path] = [_dir for _dir in self.root.glob("*") if _dir.is_dir() and _dir.name in target]
 
-        mecab = MeCab.Tagger(mecab_option)
+        mecab = MeCab.Tagger()
 
         text_file: Path
         self.raw = []

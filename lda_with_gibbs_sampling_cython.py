@@ -20,18 +20,11 @@ from livedoor_news_corpus import LivedoorNewsCorpus
 
 import argparse
 parser = argparse.ArgumentParser(description='LDA')
-parser.add_argument('--stop_words_file', type=str, default="stop_words.txt")
+parser.add_argument('--stop_words_file', type=str, default=None)
 parser.add_argument('--limit', type=int, default=20)
 parser.add_argument('--iter', type=int, default=100)
 
 args = parser.parse_args()
-
-def with_padding(docs):
-    max_len = max(map(len, docs))
-    for i in range(len(docs)):
-        while len(docs[i]) != max_len:
-            docs[i].append(-1)
-    return np.array(docs).astype(np.int32)
 
 corpus: LivedoorNewsCorpus = LivedoorNewsCorpus(
     stop_words_path=args.stop_words_file, limit=args.limit)
@@ -39,5 +32,5 @@ corpus: LivedoorNewsCorpus = LivedoorNewsCorpus(
 from gibbs_sampling import gibbs_sampling
 
 ret = gibbs_sampling(corpus.docs, len(corpus.i2w), 3, args.iter)
-print(np.round(ret/ret.sum(axis=1)[:, None]))
+# print(np.round(ret/ret.sum(axis=1)[:, None]))
 

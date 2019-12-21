@@ -18,9 +18,10 @@ from scipy.special import digamma
 
 from livedoor_news_corpus import LivedoorNewsCorpus
 
+# -d /usr/local/lib/mecab/dic/mecab-ipadic-neologd
 import argparse
 parser = argparse.ArgumentParser(description='LDA')
-parser.add_argument('--stop_words_file', type=str, default="stop_words.txt")
+parser.add_argument('--stop_words_file', type=str, default=None)
 parser.add_argument('--limit', type=int, default=20)
 parser.add_argument('--iter', type=int, default=100)
 
@@ -63,8 +64,8 @@ class LDA(object):
 
         print(f"FINAL ALPHA: {self.alpha}")
         print(f"FINAL BETA: {self.beta}")
-        for i in range(self.N_K):
-            self.print_topic(i)
+        # for i in range(self.N_K):
+        #     self.print_topic(i)
         print("###################")
 
     def initialize_counters(self):
